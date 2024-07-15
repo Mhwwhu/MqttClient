@@ -1,0 +1,8 @@
+{
+	"host": "43.136.123.146",
+	"port": 1883,
+	"display_form": "hex",
+	"output_to_file": true,
+	"output_file": "test.txt",
+	"append": false
+}

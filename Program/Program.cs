@@ -12,11 +12,13 @@ namespace Program
 {
 	public class Program
 	{
+		static private bool _escPressed = false;
 		static private string _host;
 		static private int _port;
 		static private string _outputFile;
 		static private OutputForm _outputForm;
 		static private bool _outputToFile;
+		static private bool _append;
 		static void Main(string[] args)
 		{
 			BuildConfiguration();
@@ -53,7 +55,7 @@ namespace Program
 		{
 			var cts = new CancellationTokenSource();
 			Task.Run(() => client.StartPublish(cts.Token));
-			while (true)
+			while (!_escPressed)
 			{
 				var msgstr = Console.ReadLine();
 				var message = new MqttApplicationMessageBuilder()
@@ -66,10 +68,25 @@ namespace Program
 		}
 		static void RunSubscriber(MqttClient client, string topic)
 		{
-			bool isBinary = false;
+			Console.WriteLine("Press ESC to exit");
+			Task.Run(() => WatchForKeyPress());
+			bool isBinary = _outputForm == OutputForm.BIN;
 			var cts = new CancellationTokenSource();
 			Task.Run(() => client.StartListen(topic, cts.Token));
-			while(true)
+			StreamWriter? textfile = null;
+			FileStream? binfile = null;
+			if (!isBinary)
+			{
+				if (_outputFile == string.Empty) _outputFile = "temp.txt";
+				textfile = new StreamWriter(_outputFile, _append);
+			}
+			else
+			{
+				if (_outputFile == string.Empty) _outputFile = "temp.bin";
+				if (_append) binfile = new FileStream(_outputFile, FileMode.Append);
+				else binfile = new FileStream(_outputFile, FileMode.OpenOrCreate);
+			}
+			while (!_escPressed)
 			{
 				var message = client.GetRecvMessage();
 				if (message == null) continue;
@@ -91,27 +108,20 @@ namespace Program
 				{
 					if (!isBinary)
 					{
-						if (_outputFile == string.Empty) _outputFile = "temp.txt";
-						using (StreamWriter file = new StreamWriter(_outputFile))
-						{
-							file.WriteLine(text);
-						}
+						textfile!.WriteLine(text);
 					}
 					else
 					{
-						if (_outputFile == string.Empty) _outputFile = "temp.bin";
-						using(var file = new FileStream(_outputFile,FileMode.OpenOrCreate))
-						{
-							file.Write(payload);
-						}
+						binfile!.Write(payload);
 					}
 				}
 				else
 				{
 					Console.WriteLine(text);
 				}
-				
 			}
+			if (!isBinary) textfile!.Close();
+			else binfile!.Close();
 		}
 		static void BuildConfiguration()
 		{
@@ -123,6 +133,7 @@ namespace Program
 			_port = int.Parse(configuration["port"]!);
 			_outputFile = configuration["output_file"]!;
 			_outputToFile = bool.Parse(configuration["output_to_file"]!);
+			_append = bool.Parse(configuration["append"]!);
 			var outputForm = configuration["display_form"]!;
 			switch (outputForm.ToUpper())
 			{
@@ -141,5 +152,19 @@ namespace Program
 					break;
 			}
 		}
+		static void WatchForKeyPress()
+		{
+			while (true)
+			{
+				var key = Console.ReadKey(true);
+
+				if (key.Key == ConsoleKey.Escape)
+				{
+					_escPressed = true;
+					break;
+				}
+			}
+		}
 	}
+
 }
