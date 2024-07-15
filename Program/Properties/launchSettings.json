@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Program": {
+      "commandName": "Project",
+      "commandLineArgs": "-t mqtt/test\r\n--pub"
+    }
+  }
+}
